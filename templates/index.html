@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Smart Shelf Replenishment</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0 auto;
+      padding: 1rem;
+      max-width: 960px;
+    }
+    h1, h2 {
+      color: #222;
+    }
+    .stock-cards {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .stock-card {
+      flex: 1 1 180px;
+      background: #f3f3f3;
+      border-radius: 6px;
+      padding: 0.7rem;
+      border: 1px solid #ccc;
+    }
+    button {
+      margin-top: 0.5rem;
+      padding: 0.4rem 0.8rem;
+      font-size: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Smart Shelf Replenishment System</h1>
+
+  <section>
+    <h2>📊 Analytics</h2>
+    <div id="stats">Loading...</div>
+  </section>
+
+  <section>
+    <h2>⚠️ Alerts</h2>
+    <div id="alerts"></div>
+  </section>
+
+  <section>
+    <h2>🧪 Shelf Simulator</h2>
+    <div id="stockContainer">Loading...</div>
+  </section>
+
+  <section>
+    <h2>🛒 Sales Data</h2>
+    <div id="salesContainer">Loading...</div>
+  </section>
+
+  <section>
+    <h2>📈 Sales Graph</h2>
+    <canvas id="salesChart" width="600" height="300"></canvas>
+  </section>
+
+  <section>
+    <h2>🧑‍💼 Manager Dashboard</h2>
+    <ul id="requestList"></ul>
+  </section>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
