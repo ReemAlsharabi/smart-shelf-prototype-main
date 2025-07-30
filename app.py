@@ -1,10 +1,12 @@
 # Smart Shelf Replenishment System with Environmental Monitoring
+# Smart Shelf Replenishment System with Environmental Monitoring
 
 from flask import Flask, render_template, jsonify, request
 from datetime import datetime
 import random
 import threading
 import time
+import requests
 
 app = Flask(__name__)
 
@@ -35,10 +37,27 @@ products = {
 }
 
 supplier_inventory = {
-    'Milk': 15,
-    'Bread': 8
-}
 
+}
+def get_all_supplies() :
+    try:
+        response = requests.get("http://localhost:5001/inventory")
+        if response.status_code == 200:
+            supplier_inventory = response.json()
+            return supplier_inventory
+        else : return -1
+    except Exception as e:
+        return -1
+def get_supplides (product) :
+    try:
+        response = requests.get("http://localhost:5001/inventory")
+        if response.status_code == 200:
+            supplier_inventory = response.json()
+            available = supplier_inventory.get(product, 0)
+            return available
+        else : return -1
+    except Exception as e:
+        return -1
 restock_requests = []
 request_id = 1
 sensor_history = {p: [] for p in products.keys()}
@@ -104,13 +123,16 @@ def manage_stock():
             products[product]['sales'] += (old_stock - new_stock)
 
         needed_qty = max(0, products[product]['threshold'] - products[product]['stock'])
-        pending_qty = sum(r['quantity'] for r in restock_requests if r['product'] == product and r['status'] == 'Pending')
-
-        if needed_qty > pending_qty and supplier_inventory.get(product, 0) > 0:
+        pending_qty = sum(r['quantity'] for r in restock_requests if r['product'] == product
+                          and (r['status'] == 'Pending' or r['status']=='Approved'))
+        supplier_available = get_supplides(product)
+        additional_supplies_requested_const = 4
+        requested_supplies = needed_qty - pending_qty + additional_supplies_requested_const if needed_qty-pending_qty>0 else 0
+        if needed_qty > pending_qty and supplier_available > 0 :
             restock_requests.append({
                 'id': request_id,
                 'product': product,
-                'quantity': min(needed_qty - pending_qty, supplier_inventory[product]),
+                'quantity': min(requested_supplies, supplier_available),
                 'status': 'Pending',
                 'timestamp': datetime.now().isoformat(),
                 'comment': ""
@@ -133,37 +155,47 @@ def handle_requests():
         for r in restock_requests:
             if r['id'] == req_id and r['status'] == 'Pending':
                 product = r['product']
-                available = supplier_inventory.get(product, 0)
+                quantity = r['quantity']
+
+                # ✅ Step 1: Query supplier inventory via HTTP
+                available = get_supplides(product)
+                if available ==-1 :
+                    r['comment'] += 'could finish supplier inventory request '
+                    break
+                # ✅ Step 2: Decide based on availability
                 if action == 'approve' and available <= 0:
                     r['comment'] += " | Skipped: no supplier stock available."
                     break
 
+                # ✅ Step 3: Update status
                 r['status'] = 'Approved' if action == 'approve' else 'Rejected'
                 r['comment'] = comment
                 r['decision_time'] = datetime.now().isoformat()
 
+                # ✅ Step 4: Send request to supplier if approved
                 if r['status'] == 'Approved':
-                    requested_qty = r['quantity']
-                    current_need = max(0, products[product]['threshold'] - products[product]['stock'])
-                    other_pending = sum(x['quantity'] for x in restock_requests if x['product'] == product and x['status'] == 'Pending' and x['id'] != req_id)
-                    net_need = max(0, current_need - other_pending)
-                    restock_qty = min(requested_qty, available, net_need)
-                    products[product]['stock'] += restock_qty
-                    supplier_inventory[product] -= restock_qty
-
-                    if restock_qty < requested_qty:
-                        restock_requests.append({
-                            'id': request_id,
-                            'product': product,
-                            'quantity': requested_qty - restock_qty,
-                            'status': 'Pending',
-                            'timestamp': datetime.now().isoformat(),
-                            'comment': "Partial restock, awaiting inventory"
-                        })
-                        request_id += 1
+                    try:
+                        supplier_payload = {
+                            "id": req_id,
+                            "product": product,
+                            "quantity": quantity,
+                            "store": {
+                                "name": "Retail Store #1",
+                                "phone": "+1234567890",
+                                "address": "123 Main St, Retail City"
+                            }
+                        }
+                        supplier_url = "http://localhost:5001/new-request"
+                        send_response = requests.post(supplier_url, json=supplier_payload)
+                        if send_response.status_code == 200:
+                            r['comment'] += " | Sent to supplier."
+                        else:
+                            r['comment'] += f" | Supplier error: {send_response.status_code}"
+                    except Exception as e:
+                        r['comment'] += f" | Failed to contact supplier: {e}"
                 break
-    return jsonify(restock_requests)
 
+    return jsonify(restock_requests)
 @app.route('/analytics')
 def analytics():
     return jsonify({
@@ -173,7 +205,7 @@ def analytics():
         'rejected': sum(1 for r in restock_requests if r['status'] == 'Rejected'),
         'sales': {p: v['sales'] for p, v in products.items()},
         'stock': {p: v['stock'] for p, v in products.items()},
-        'supplier': supplier_inventory,
+        'supplier': get_all_supplies(),
         'sensors': {p: v['sensors'] for p, v in products.items()},
         'alerts': check_environment_alerts()
     })
