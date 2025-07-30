@@ -143,18 +143,18 @@ def process_requests():
             if req['status'] == 'Approved':
 
                 print(f"[START] Processing request {req['id']}")
-                time.sleep(1)
+                time.sleep(2.5)
                 req['status'] = 'processing started'
                 # Simulate picking
                 print(f"[Picking] {req['quantity']} x {req['product']}")
-                time.sleep(1)
+                time.sleep(2.5)
                 req['status'] = 'picking items'
                 # Simulate packing
                 print(f"[Packing] {req['quantity']} x {req['product']}")
-                time.sleep(1)
+                time.sleep(2.5)
                 req['status'] = 'packing items'
 
-
+                time.sleep(2.5)
                 # Dispatch
                 if supplier_inventory[req['product']] >= req['quantity']:
                     supplier_inventory[req['product']] -= req['quantity']
